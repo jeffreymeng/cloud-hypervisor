@@ -3358,6 +3358,8 @@ impl DeviceManager {
         &mut self,
         device_cfg: &mut DeviceConfig,
     ) -> DeviceManagerResult<(PciBdf, String)> {
+        println!("jeffrey: add_vfio_device: {:?}", device_cfg);
+        device_cfg.iommu = true;
         let vfio_name = if let Some(id) = &device_cfg.id {
             id.clone()
         } else {
@@ -3370,7 +3372,7 @@ impl DeviceManager {
             self.pci_resources(&vfio_name, device_cfg.pci_segment)?;
 
         let mut needs_dma_mapping = false;
-
+        println!("jeffrey: 1");
         // Here we create a new VFIO container for two reasons. Either this is
         // the first VFIO device, meaning we need a new VFIO container, which
         // will be shared with other VFIO devices. Or the new VFIO device is
@@ -3387,6 +3389,32 @@ impl DeviceManager {
                 Arc::new(self.memory_manager.lock().unwrap().guest_memory()),
                 Arc::clone(&self.mmio_regions),
             ));
+
+            if let None = self.iommu_device {
+                let iommu_id = String::from(IOMMU_DEVICE_NAME);
+                let (device, mapping) = virtio_devices::Iommu::new(
+                    iommu_id.clone(),
+                    self.seccomp_action.clone(),
+                    self.exit_evt
+                        .try_clone()
+                        .map_err(DeviceManagerError::EventFd)?,
+                    self.get_msi_iova_space(),
+                    state_from_id(self.snapshot.as_ref(), iommu_id.as_str())
+                        .map_err(DeviceManagerError::RestoreGetState)?,
+                )
+                .map_err(DeviceManagerError::CreateVirtioIommu)?;
+                let device = Arc::new(Mutex::new(device));
+                self.iommu_device = Some(Arc::clone(&device));
+                self.iommu_mapping = Some(mapping);
+    
+                // Fill the device tree with a new node. In case of restore, we
+                // know there is nothing to do, so we can simply override the
+                // existing entry.
+                self.device_tree
+                    .lock()
+                    .unwrap()
+                    .insert(iommu_id.clone(), device_node!(iommu_id, device));
+            }
 
             if let Some(iommu) = &self.iommu_device {
                 iommu
@@ -3407,16 +3435,17 @@ impl DeviceManager {
 
             vfio_container
         };
-
+        println!("jeffrey: 2");
         let vfio_device = VfioDevice::new(&device_cfg.path, Arc::clone(&vfio_container))
             .map_err(DeviceManagerError::VfioCreate)?;
-
+        println!("jeffrey: 2.25");
         if needs_dma_mapping {
             // Register DMA mapping in IOMMU.
             // Do not register virtio-mem regions, as they are handled directly by
             // virtio-mem device itself.
             for (_, zone) in self.memory_manager.lock().unwrap().memory_zones().iter() {
                 for region in zone.regions() {
+                    println!("jeffrey: vfio_dma_map (in loop): {}, {}, {}", region.start_addr().raw_value(), region.len(), region.as_ptr() as u64);
                     vfio_container
                         .vfio_dma_map(
                             region.start_addr().raw_value(),
@@ -3426,7 +3455,7 @@ impl DeviceManager {
                         .map_err(DeviceManagerError::VfioDmaMap)?;
                 }
             }
-
+            println!("jeffrey: 2.5");
             let vfio_mapping = Arc::new(VfioDmaMapping::new(
                 Arc::clone(&vfio_container),
                 Arc::new(self.memory_manager.lock().unwrap().guest_memory()),
@@ -3444,7 +3473,7 @@ impl DeviceManager {
                     .map_err(DeviceManagerError::AddDmaMappingHandlerVirtioMem)?;
             }
         }
-
+        println!("jeffrey: 3");
         let legacy_interrupt_group =
             if let Some(legacy_interrupt_manager) = &self.legacy_interrupt_manager {
                 Some(
@@ -3459,7 +3488,7 @@ impl DeviceManager {
             } else {
                 None
             };
-
+        println!("jeffrey: 4");
         let memory_manager = self.memory_manager.clone();
 
         let vfio_pci_device = VfioPciDevice::new(
@@ -3478,7 +3507,7 @@ impl DeviceManager {
         .map_err(DeviceManagerError::VfioPciCreate)?;
 
         let vfio_pci_device = Arc::new(Mutex::new(vfio_pci_device));
-
+        println!("jeffrey: 5");
         let new_resources = self.add_pci_device(
             vfio_pci_device.clone(),
             vfio_pci_device.clone(),
@@ -3486,7 +3515,7 @@ impl DeviceManager {
             pci_device_bdf,
             resources,
         )?;
-
+        println!("jeffrey: 6");
         vfio_pci_device
             .lock()
             .unwrap()
@@ -3496,7 +3525,7 @@ impl DeviceManager {
         for mmio_region in vfio_pci_device.lock().unwrap().mmio_regions() {
             self.mmio_regions.lock().unwrap().push(mmio_region);
         }
-
+        println!("jeffrey: 7");
         let mut node = device_node!(vfio_name, vfio_pci_device);
 
         // Update the device tree with correct resource information.
@@ -3508,7 +3537,7 @@ impl DeviceManager {
             .lock()
             .unwrap()
             .insert(vfio_name.clone(), node);
-
+        println!("jeffrey: 8");
         Ok((pci_device_bdf, vfio_name))
     }
 

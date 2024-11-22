@@ -1558,6 +1558,7 @@ impl VfioPciDevice {
     ///          as user memory regions.
     /// * `mem_slot` - The closure to return a memory slot.
     pub fn map_mmio_regions(&mut self) -> Result<(), VfioPciError> {
+        println!("jeffrey: map_mmio_regions");
         let fd = self.device.as_raw_fd();
 
         for region in self.common.mmio_regions.iter_mut() {
@@ -1654,7 +1655,9 @@ impl VfioPciDevice {
                         .create_user_memory_region(mem_region)
                         .map_err(VfioPciError::CreateUserMemoryRegion)?;
 
+                    println!("jeffrey: iommu attached: {}", self.iommu_attached);
                     if !self.iommu_attached {
+                        println!("jeffrey: dma_map");
                         self.container
                             .vfio_dma_map(
                                 user_memory_region.start,
