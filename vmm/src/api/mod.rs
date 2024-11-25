@@ -436,6 +436,10 @@ impl ApiAction for VmAddDevice {
     ) -> ApiRequest {
         Box::new(move |vmm| {
             info!("API request event: VmAddDevice {:?}", config);
+            let mut config = config.clone();
+            config.iommu = true;
+            config.x_nv_gpudirect_clique = Some(0);
+            println!("jeffrey: modified VmAddDevice api {:?}", config);
 
             let response = vmm
                 .vm_add_device(config)
@@ -546,8 +550,6 @@ impl ApiAction for VmAddPmem {
         response_sender: Sender<ApiResponse>,
     ) -> ApiRequest {
         Box::new(move |vmm| {
-            info!("API request event: VmAddPmem {:?}", config);
-
             let response = vmm
                 .vm_add_pmem(config)
                 .map_err(ApiError::VmAddPmem)
@@ -837,6 +839,24 @@ impl ApiAction for VmCreate {
     ) -> ApiRequest {
         Box::new(move |vmm| {
             info!("API request event: VmCreate {:?}", config);
+            let mut config = config.clone();
+            config.iommu = true;
+
+            let mut platform_clone = config.platform.clone().expect("jeffrey: expected platform");
+            platform_clone.iommu_segments = Some(vec![0]);
+            config.platform = Some(platform_clone);
+
+            let mut pmem_clone = config.pmem.clone().expect("jeffrey: expected pmem");
+            for x in pmem_clone.iter_mut() {
+                x.iommu = true;
+            }
+            config.pmem = Some(pmem_clone);
+
+            let mut vsock_clone = config.vsock.clone().expect("jeffrey: expected vsock");
+            vsock_clone.iommu = true;
+            config.vsock = Some(vsock_clone);
+
+            println!("jeffrey: modified VmCreate api {:?}", config);
 
             let response = vmm
                 .vm_create(config)

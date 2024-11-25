@@ -184,7 +184,7 @@ pub enum ValidationError {
     BalloonLargerThanRam(u64, u64),
     /// On a IOMMU segment but not behind IOMMU
     OnIommuSegment(u16),
-    // On a IOMMU segment but IOMMU not supported
+   // On a IOMMU segment but IOMMU not supported
     IommuNotSupportedOnSegment(u16),
     // Identifier is not unique
     IdentifierNotUnique(String),
@@ -1741,7 +1741,6 @@ impl PmemConfig {
             .convert("pci_segment")
             .map_err(Error::ParsePersistentMemory)?
             .unwrap_or_default();
-
         Ok(PmemConfig {
             file,
             size,

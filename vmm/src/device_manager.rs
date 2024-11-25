@@ -3319,6 +3319,7 @@ impl DeviceManager {
         &mut self,
         device_cfg: &mut DeviceConfig,
     ) -> DeviceManagerResult<(PciBdf, String)> {
+        println!("jeffrey: add_vfio_device {:?}", device_cfg);
         let vfio_name = if let Some(id) = &device_cfg.id {
             id.clone()
         } else {
@@ -3447,13 +3448,13 @@ impl DeviceManager {
             pci_device_bdf,
             resources,
         )?;
-
+        println!("jeffrey: map mmio regions");
         vfio_pci_device
             .lock()
             .unwrap()
             .map_mmio_regions()
             .map_err(DeviceManagerError::VfioMapRegion)?;
-
+        println!("jeffrey: map mmio regions done");
         for mmio_region in vfio_pci_device.lock().unwrap().mmio_regions() {
             self.mmio_regions.lock().unwrap().push(mmio_region);
         }
