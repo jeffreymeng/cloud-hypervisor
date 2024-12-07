@@ -837,11 +837,26 @@ impl ApiAction for VmCreate {
     ) -> ApiRequest {
         Box::new(move |vmm| {
             info!("API request event: VmCreate {:?}", config);
-
+            println!("jeffrey: hello");
             let response = vmm
-                .vm_create(config)
-                .map_err(ApiError::VmCreate)
+                .vm_restore(RestoreConfig {
+                    source_url: "file:///tmp/clh-snapshot".into(),
+                    prefault: Default::default(),
+                    net_fds: Default::default(),
+                })
+                .map_err(ApiError::VmRestore)
                 .map(|_| ApiResponsePayload::Empty);
+
+            let _ = vmm.vm_resume();
+
+            response_sender
+                .send(response)
+                .map_err(VmmError::ApiResponseSend)?;
+
+            // let response = vmm
+            //     .vm_create(config)
+            //     .map_err(ApiError::VmCreate)
+            //     .map(|_| ApiResponsePayload::Empty);
 
             response_sender
                 .send(response)
