@@ -586,6 +586,9 @@ impl ApiAction for VmAddNet {
     ) -> ApiRequest {
         Box::new(move |vmm| {
             info!("API request event: VmAddNet {:?}", config);
+            let mut config = config.clone();
+            config.iommu = true;
+            println!("jeffrey: modified VmAddNet api {:?}", config);
 
             let response = vmm
                 .vm_add_net(config)
@@ -839,6 +842,7 @@ impl ApiAction for VmCreate {
     ) -> ApiRequest {
         Box::new(move |vmm| {
             info!("API request event: VmCreate {:?}", config);
+            println!("jeffrey: going to modify VmCreate api");
             let mut config = config.clone();
             config.iommu = true;
 
@@ -855,6 +859,16 @@ impl ApiAction for VmCreate {
             let mut vsock_clone = config.vsock.clone().expect("jeffrey: expected vsock");
             vsock_clone.iommu = true;
             config.vsock = Some(vsock_clone);
+
+            // let net_clone = config.net.clone();
+            // let net_clone = net_clone.map(|net| {
+            //     net.into_iter().map(|nc| {
+            //         let mut c = nc.clone();
+            //         c.iommu = true;
+            //         c
+            //     }).collect()
+            // });
+            // config.net = net_clone;
 
             println!("jeffrey: modified VmCreate api {:?}", config);
 
