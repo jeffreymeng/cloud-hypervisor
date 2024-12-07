@@ -858,9 +858,9 @@ impl ApiAction for VmCreate {
             //     .map_err(ApiError::VmCreate)
             //     .map(|_| ApiResponsePayload::Empty);
 
-            response_sender
-                .send(response)
-                .map_err(VmmError::ApiResponseSend)?;
+            // response_sender
+            //     .send(response)
+            //     .map_err(VmmError::ApiResponseSend)?;
 
             Ok(false)
         })
